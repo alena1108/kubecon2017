@@ -5,6 +5,8 @@ import (
 
 	"time"
 
+	"math"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +16,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"math"
 )
 
 var VERSION = "v0.0.0-dev"
@@ -36,7 +37,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		go listNodes()
+		go pollNodes()
 		watchNodes()
 		for {
 			time.Sleep(5 * time.Second)
@@ -48,10 +49,10 @@ func main() {
 func watchNodes() {
 	watchList := cache.NewListWatchFromClient(clientset.Core().RESTClient(), "nodes", v1.NamespaceAll,
 		fields.Everything())
-	_, controller := cache.NewInformer(
+	cache, controller := cache.NewInformer(
 		watchList,
 		&api.Node{},
-		time.Second*0,
+		time.Second*10,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    handleNodeAdd,
 			UpdateFunc: handleNodeUpdate,
@@ -71,7 +72,7 @@ func handleNodeUpdate(old, current interface{}) {
 	logrus.Infof("Node [%s] is updated; allocated capacity is %v%%", node.Name, getNodeAllocatedCapacity(node))
 }
 
-func listNodes() error {
+func pollNodes() error {
 	for {
 		nodes, err := clientset.Core().Nodes().List(v1.ListOptions{})
 		if err != nil {
