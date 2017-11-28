@@ -22,6 +22,9 @@ var VERSION = "v0.0.0-dev"
 
 var clientset *kubernetes.Clientset
 
+var controller cache.Controller
+var store cache.Store
+
 func main() {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
@@ -47,9 +50,10 @@ func main() {
 }
 
 func watchNodes() {
+	//Regular informer example
 	watchList := cache.NewListWatchFromClient(clientset.Core().RESTClient(), "nodes", v1.NamespaceAll,
 		fields.Everything())
-	cache, controller := cache.NewInformer(
+	store, controller = cache.NewInformer(
 		watchList,
 		&api.Node{},
 		time.Second*10,
@@ -58,6 +62,26 @@ func watchNodes() {
 			UpdateFunc: handleNodeUpdate,
 		},
 	)
+
+	// // Shared informer example
+	// informer := cache.NewSharedIndexInformer(
+	// 	watchList,
+	// 	&api.Node{},
+	// 	time.Second*10,
+	// 	cache.Indexers{},
+	// )
+
+	// informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	// 	AddFunc:    handleNodeAdd,
+	// 	UpdateFunc: handleNodeUpdate,
+	// })
+
+	// // More than one handler can be added...
+	// informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	// 	AddFunc:    handleNodeAddExtra,
+	// 	UpdateFunc: handleNodeUpdateExtra,
+	// })
+
 	stop := make(chan struct{})
 	go controller.Run(stop)
 }
@@ -68,13 +92,30 @@ func handleNodeAdd(obj interface{}) {
 }
 
 func handleNodeUpdate(old, current interface{}) {
+
+	// nodeInterface, exists, err := store.GetByKey("minikube")
+	// if exists && err == nil {
+	// 	logrus.Infof("Found the node [%v] in cache", nodeInterface)
+	// }
+
 	node := current.(*api.Node)
 	logrus.Infof("Node [%s] is updated; allocated capacity is %v%%", node.Name, getNodeAllocatedCapacity(node))
 }
 
 func pollNodes() error {
 	for {
-		nodes, err := clientset.Core().Nodes().List(v1.ListOptions{})
+		nodes, err := clientset.Core().Nodes().List(v1.ListOptions{FieldSelector: "metadata.name=minikube"})
+		if len(nodes.Items) > 0 {
+			node := nodes.Items[0]
+			node.Annotations["checked"] = "true"
+			_, err := clientset.Core().Nodes().Update(&node)
+			if err != nil {
+				return err
+			}
+			// gracePeriod := int64(10)
+			// err = clientset.Core().Nodes().Delete(updatedNode.Name,
+			// 	&v1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+		}
 		if err != nil {
 			return err
 		}
