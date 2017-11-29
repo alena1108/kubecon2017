@@ -5,9 +5,8 @@ import (
 
 	"time"
 
-	"math"
-
 	"github.com/Sirupsen/logrus"
+	"github.com/dustin/go-humanize"
 	"github.com/urfave/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -38,6 +37,7 @@ func main() {
 		var err error
 		clientset, err = getClient(c.String("config"))
 		if err != nil {
+			logrus.Error(err)
 			return err
 		}
 		go pollNodes()
@@ -88,7 +88,8 @@ func watchNodes() {
 
 func handleNodeAdd(obj interface{}) {
 	node := obj.(*api.Node)
-	logrus.Infof("Node [%s] is added; allocated capacity is %v%%", node.Name, getNodeAllocatedCapacity(node))
+	logrus.Infof("Node [%s] is added; checking resources...", node.Name)
+	checkImageStorage(node)
 }
 
 func handleNodeUpdate(old, current interface{}) {
@@ -99,7 +100,8 @@ func handleNodeUpdate(old, current interface{}) {
 	// }
 
 	node := current.(*api.Node)
-	logrus.Infof("Node [%s] is updated; allocated capacity is %v%%", node.Name, getNodeAllocatedCapacity(node))
+	logrus.Infof("Node [%s] is updated; checking resources...", node.Name)
+	checkImageStorage(node)
 }
 
 func pollNodes() error {
@@ -120,34 +122,31 @@ func pollNodes() error {
 			return err
 		}
 		for _, node := range nodes.Items {
-			logrus.Infof("Node [%s] allocated capacity is %v%%", node.Name, getNodeAllocatedCapacity(&node))
+			checkImageStorage(&node)
 		}
 		time.Sleep(5 * time.Second)
 	}
 }
 
-func getNodeAllocatedCapacity(node *api.Node) float64 {
-	a := node.Status.Allocatable[api.ResourceMemory]
-	c := node.Status.Capacity[api.ResourceMemory]
-	allocatable, _ := a.AsInt64()
-	capacity, _ := c.AsInt64()
-	diff := float64(capacity - allocatable)
-	allocated := (diff / float64(capacity)) * 100
-	return round(allocated, 0.5, 2)
+func checkImageStorage(node *api.Node) {
+	var storage int64
+	for _, image := range node.Status.Images {
+		storage = storage + image.SizeBytes
+	}
+	logrus.Infof("Node [%s] has [%s] occupied by images", node.Name, humanize.Bytes(uint64(storage)))
 }
 
-func round(val float64, roundOn float64, places int) (newVal float64) {
-	var round float64
-	pow := math.Pow(10, float64(places))
-	digit := pow * val
-	_, div := math.Modf(digit)
-	if div >= roundOn {
-		round = math.Ceil(digit)
-	} else {
-		round = math.Floor(digit)
+func isNodeUnderPressure(node *api.Node) bool {
+	memoryPressure := false
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == "MemoryPressure" {
+			if condition.Status == "True" {
+				memoryPressure = true
+			}
+			break
+		}
 	}
-	newVal = round / pow
-	return
+	return memoryPressure
 }
 
 func getClient(pathToCfg string) (*kubernetes.Clientset, error) {

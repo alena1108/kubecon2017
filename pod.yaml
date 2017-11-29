@@ -1,0 +1,19 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: memory-demo
+  labels:
+    app: memory-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memory-demo
+  template:
+    metadata:
+      labels:
+        app: memory-demo
+    spec:
+      containers:
+      - name: memory-demo-ctr
+        image: ubuntu
