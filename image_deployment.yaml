@@ -1,19 +1,19 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: nginx-demo
+  name: monitor-demo
   labels:
-    app: nginx-demo
+    app: monitor-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nginx-demo
+      app: monitor-demo
   template:
     metadata:
       labels:
-        app: nginx-demo
+        app: monitor-demo
     spec:
       containers:
-      - name: nginx-demo-ctr
+      - name: monitor-demo-ctr
         image: nginx:latest
