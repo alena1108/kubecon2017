@@ -1,19 +1,19 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: memory-demo
+  name: nginx-demo
   labels:
-    app: memory-demo
+    app: nginx-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: memory-demo
+      app: nginx-demo
   template:
     metadata:
       labels:
-        app: memory-demo
+        app: nginx-demo
     spec:
       containers:
-      - name: memory-demo-ctr
-        image: ubuntu
+      - name: nginx-demo-ctr
+        image: nginx:latest
