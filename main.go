@@ -23,6 +23,7 @@ var clientset *kubernetes.Clientset
 
 var controller cache.Controller
 var store cache.Store
+var imageCapacity map[string]int64
 
 func main() {
 	app := cli.NewApp()
@@ -50,40 +51,41 @@ func main() {
 }
 
 func watchNodes() {
+	imageCapacity = make(map[string]int64)
 	//Regular informer example
 	watchList := cache.NewListWatchFromClient(clientset.Core().RESTClient(), "nodes", v1.NamespaceAll,
 		fields.Everything())
 	store, controller = cache.NewInformer(
 		watchList,
 		&api.Node{},
-		time.Second*10,
+		time.Second*30,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    handleNodeAdd,
 			UpdateFunc: handleNodeUpdate,
 		},
 	)
 
-	// // Shared informer example
-	// informer := cache.NewSharedIndexInformer(
-	// 	watchList,
-	// 	&api.Node{},
-	// 	time.Second*10,
-	// 	cache.Indexers{},
-	// )
-
-	// informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-	// 	AddFunc:    handleNodeAdd,
-	// 	UpdateFunc: handleNodeUpdate,
-	// })
-
-	// // More than one handler can be added...
-	// informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-	// 	AddFunc:    handleNodeAddExtra,
-	// 	UpdateFunc: handleNodeUpdateExtra,
-	// })
-
 	stop := make(chan struct{})
 	go controller.Run(stop)
+
+	// Shared informer example
+	informer := cache.NewSharedIndexInformer(
+		watchList,
+		&api.Node{},
+		time.Second*10,
+		cache.Indexers{},
+	)
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    handleNodeAdd,
+		UpdateFunc: handleNodeUpdate,
+	})
+
+	// More than one handler can be added...
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    handleNodeAdd,
+		UpdateFunc: handleNodeUpdate,
+	})
 }
 
 func handleNodeAdd(obj interface{}) {
@@ -93,14 +95,13 @@ func handleNodeAdd(obj interface{}) {
 }
 
 func handleNodeUpdate(old, current interface{}) {
-
-	// nodeInterface, exists, err := store.GetByKey("minikube")
-	// if exists && err == nil {
-	// 	logrus.Infof("Found the node [%v] in cache", nodeInterface)
-	// }
+	// Cache access example
+	nodeInterface, exists, err := store.GetByKey("minikube")
+	if exists && err == nil {
+		logrus.Debugf("Found the node [%v] in cache", nodeInterface)
+	}
 
 	node := current.(*api.Node)
-	logrus.Infof("Node [%s] is updated; checking resources...", node.Name)
 	checkImageStorage(node)
 }
 
@@ -114,6 +115,7 @@ func pollNodes() error {
 			if err != nil {
 				return err
 			}
+			// // Node removal example
 			// gracePeriod := int64(10)
 			// err = clientset.Core().Nodes().Delete(updatedNode.Name,
 			// 	&v1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
@@ -124,7 +126,7 @@ func pollNodes() error {
 		for _, node := range nodes.Items {
 			checkImageStorage(&node)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
 
@@ -133,7 +135,19 @@ func checkImageStorage(node *api.Node) {
 	for _, image := range node.Status.Images {
 		storage = storage + image.SizeBytes
 	}
-	logrus.Infof("Node [%s] has [%s] occupied by images", node.Name, humanize.Bytes(uint64(storage)))
+	changed := true
+	if _, ok := imageCapacity[node.Name]; ok {
+		if imageCapacity[node.Name] == storage {
+			changed = false
+		}
+	}
+	if changed {
+		logrus.Infof("Node [%s] storage occupied by images changed. Old value: [%v], new value: [%v]", node.Name,
+			humanize.Bytes(uint64(imageCapacity[node.Name])), humanize.Bytes(uint64(storage)))
+		imageCapacity[node.Name] = storage
+	} else {
+		logrus.Infof("No changes in node [%s] storage occupied by images", node.Name)
+	}
 }
 
 func isNodeUnderPressure(node *api.Node) bool {

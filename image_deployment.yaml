@@ -1,19 +1,19 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: monitor-demo
+  name: images-demo
   labels:
-    app: monitor-demo
+    app: images-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: monitor-demo
+      app: images-demo
   template:
     metadata:
       labels:
-        app: monitor-demo
+        app: images-demo
     spec:
       containers:
-      - name: monitor-demo-ctr
-        image: nginx:latest
+      - name: images-demo-ctr
+        image: ubuntu:14.04
