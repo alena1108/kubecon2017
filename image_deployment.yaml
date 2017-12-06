@@ -16,4 +16,4 @@ spec:
     spec:
       containers:
       - name: images-demo-ctr
-        image: ubuntu:14.04
+        image: ubuntu:17.10

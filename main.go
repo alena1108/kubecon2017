@@ -30,7 +30,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "config",
-			Usage: "Kube config for outside of cluster access",
+			Usage: "Kube config path for outside of cluster access",
 		},
 	}
 
@@ -108,20 +108,22 @@ func handleNodeUpdate(old, current interface{}) {
 func pollNodes() error {
 	for {
 		nodes, err := clientset.Core().Nodes().List(v1.ListOptions{FieldSelector: "metadata.name=minikube"})
+		if err != nil {
+			logrus.Warnf("Failed to poll the nodes: %v", err)
+			continue
+		}
 		if len(nodes.Items) > 0 {
 			node := nodes.Items[0]
 			node.Annotations["checked"] = "true"
 			_, err := clientset.Core().Nodes().Update(&node)
 			if err != nil {
-				return err
+				logrus.Warnf("Failed to update the node: %v", err)
+				continue
 			}
 			// // Node removal example
 			// gracePeriod := int64(10)
 			// err = clientset.Core().Nodes().Delete(updatedNode.Name,
 			// 	&v1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
-		}
-		if err != nil {
-			return err
 		}
 		for _, node := range nodes.Items {
 			checkImageStorage(&node)
