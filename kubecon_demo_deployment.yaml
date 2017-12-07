@@ -1,21 +1,20 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: memory-demo
+  name: kubecon-demo
   labels:
-    app: memory-demo
+    app: kubecon-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: memory-demo
+      app: kubecon-demo
   template:
     metadata:
       labels:
-        app: memory-demo
+        app: kubecon-demo
     spec:
-      serviceAccountName: kubecon
       containers:
-      - name: memory-demo-ctr
-        image: alena1108/kubecon:latest
+      - name: kubecon-demo-ctr
+        image: alena1108/kubecon:v0.6.2
         imagePullPolisy: Always
