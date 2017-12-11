@@ -16,4 +16,4 @@ spec:
     spec:
       containers:
       - name: images-demo-ctr
-        image: ubuntu:17.10
+        image: busybox

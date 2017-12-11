@@ -152,19 +152,6 @@ func checkImageStorage(node *api.Node) {
 	}
 }
 
-func isNodeUnderPressure(node *api.Node) bool {
-	memoryPressure := false
-	for _, condition := range node.Status.Conditions {
-		if condition.Type == "MemoryPressure" {
-			if condition.Status == "True" {
-				memoryPressure = true
-			}
-			break
-		}
-	}
-	return memoryPressure
-}
-
 func getClient(pathToCfg string) (*kubernetes.Clientset, error) {
 	var config *rest.Config
 	var err error

@@ -18,4 +18,4 @@ spec:
       containers:
       - name: memory-demo-ctr
         image: alena1108/kubecon:v0.6.1
-        imagePullPolisy: Always
+        imagePullPolicy: Always
