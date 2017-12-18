@@ -1,3 +1,3 @@
-FROM ubuntu:16.04
+FROM scratch
 COPY kubecon /usr/bin/
 CMD ["kubecon"]
