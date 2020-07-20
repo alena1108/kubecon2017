@@ -1,4 +1,4 @@
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kubecon-demo
@@ -17,5 +17,34 @@ spec:
       serviceAccountName: kubecon
       containers:
       - name: memory-demo-ctr
-        image: alena1108/kubecon:v0.6.1
+        image: alena1108/kubecon:v0.7.0
         imagePullPolicy: Always
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubecon
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: node-watcher
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["nodes"]
+  verbs: ["get", "watch", "list", "update"]
+---
+
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: watch-nodes-global
+subjects:
+- kind: ServiceAccount
+  name: kubecon
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: node-watcher
+  apiGroup: rbac.authorization.k8s.io
